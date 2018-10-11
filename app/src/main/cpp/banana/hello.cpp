@@ -15,10 +15,9 @@
 #include<jni.h>
 #include<string>
 #include"inlineHook.h"
-#include"HttpRequest.h"
-#include"HttpResponse.h"
 #include<vector>
 #include<map>
+#include "banana/json/json.h"
 
 
 
@@ -30,21 +29,9 @@
 #define LOGD(fmt, args...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, fmt, ##args)
 uint32_t base;
 
-int
-(*_CNetHttp_DoRequest)(void *handle, std::string const &s1,
-                       cocos2d::network::HttpRequest::Type type,
-                       std::string const &s2, std::string const &s3);
-
-int (*_HttpClient_send)(void *handle, cocos2d::network::HttpRequest *httpRequest);
-
-
-int (*_CNetHttp_OnHttpResponse)(void *handle, cocos2d::network::HttpClient *httpClient,
-                                cocos2d::network::HttpResponse *httpResponse);
-
-
 int (*_CSocket_Send)(void *handle, char const *c, int value);
 
-int (*_Utils_XOrFunc)(void *handle, std::string &data);
+std::string (*_Json_FastWriter_write)(void *handle, Json::Value const &value);
 
 
 int (*_CSocket_Recv)(void *handle, char *c, int value);
@@ -266,7 +253,7 @@ int fir_sendcmd(char *cmd, int cmdlen) {
 //            newstr[6] = (int) (pt + 4);
 //
 //            if (g_cmdhandle) {
-//                _Utils_XOrFunc(g_cmdhandle, data);
+//                _Json_FastWriter_write(g_cmdhandle, data);
 //                LOGD("testtest 数据重发 = %s", pt);
 //            }
 //
@@ -438,21 +425,6 @@ int create_server() {
 
 }
 
-int (*_CCHttpAgent_HttpGet)(void *handle, std::string s1, std::string s2);
-
-int (*_CCHttpAgent_HttpPost)(std::string s1, std::string s2, std::string s3, int value);
-
-int (*_SUB_00DDCED4)(void *handle, int s1, int s2);
-
-int hook_SUB_00DDCED4(void *handle, int s1, int s2) {
-    LOGD("----------testtest hook SUB_00DDCED4 success-------------");
-    LOGD("testtest str1 = %d", s1);
-    LOGD("testtest str2 = %d", s2);
-    LOGD("-----------------------testtest-----------------------------");
-
-    return _SUB_00DDCED4(handle, s1, s2);
-}
-
 int hook_CSocket_Recv(void *handle, char *str, int value) {
     LOGD("----------testtest hook CSocket Recv success-------------");
     LOGD("testtest str1 = %s, value = %d", str, value);
@@ -477,61 +449,43 @@ int hook_CSocket_Recv(void *handle, char *str, int value) {
     return ret;
 }
 
-int hook_CCHttpAgent_HttpGet(void *handle, std::string s1, std::string s2) {
-    LOGD("----------testtest hook httpget success-------------");
-    LOGD("testtest str1 = %s", s1.c_str());
-    LOGD("testtest str2 = %s", s2.c_str());
-    LOGD("--------------------testtest--------------------------------");
 
-    return _CCHttpAgent_HttpGet(handle, s1, s2);
-}
+std::string hook_Json_FastWriter_write(void *handle, Json::Value const &value) {
 
-int
-hook_CCHttpAgent_HttpPost(void *handle, std::string s1, std::string s2, std::string s3, int value) {
-    LOGD("----------testtest hook httppost success-------------");
-    LOGD("testtest str1 = %s", s1.c_str());
-    LOGD("testtest str2 = %s", s2.c_str());
-    LOGD("testtest str3 = %s", s3.c_str());
-    LOGD("testtest value = %d", value);
-    LOGD("-----------------------testtest-----------------------------");
-    return _CCHttpAgent_HttpGet(handle, s1, s2);
-}
+    LOGD("----------testtest hook hook_Json_FastWriter_write success-------------");
+    std::string result = _Json_FastWriter_write(handle, value);
+    int len = result.length();
 
-int hook_Utils_XOrFunc(void *handle, std::string &data) {
-    LOGD("----------testtest hook hook_Utils_XOrFunc success-------------");
-    LOGD("testtest data = %s", data.c_str());
+    if (len > 0) {
+//        char temp[len];
+//        strcpy(temp, result.c_str());
+        LOGD("testtest change old result = %s, len = %d", result.c_str(), result.length());
+    }
     LOGD("-----------------------testtest-----------------------------");
 
-    return _Utils_XOrFunc(handle, data);
-}
+    char *buf;
+    int *pi;
 
+    g_cmdhandle = handle;
+    if (len > 0) {
+        buf = (char *) malloc(len + 4);
+        pi = (int *) buf;
+        pi[0] = 1;// 发包
+        memcpy(buf + 4, result.c_str(), len);
+        std::string ts = rulerep(buf, len + 8);
+        if (cli_sockfd != -1) {
+            send(cli_sockfd, ts.c_str(), ts.length(), 0);
+        }
+        free(buf);
+        char *pnew = (char *) ts.c_str();
+        pnew += 4;
+        LOGD("testtest change new result = %s, len = %d",
+             (std::string(pnew, ts.length() - 8)).c_str(),
+             (std::string(pnew, ts.length() - 8)).length());
+        return std::string(pnew, ts.length()-8);
+    }
 
-int hook_CNetHttp_OnHttpResponse(void *handle, cocos2d::network::HttpClient *httpClient,
-                                 cocos2d::network::HttpResponse *httpResponse) {
-    std::vector<char> *data = httpResponse->getResponseData();
-    std::string res;
-    res.insert(res.begin(), data->begin(), data->end());
-
-    LOGD("----------testtest hook httpresponse success-------------");
-    LOGD("testtest response data = %s", res.c_str());
-    LOGD("----------------------testtest------------------------------");
-    return _CNetHttp_OnHttpResponse(handle, httpClient, httpResponse);
-}
-
-int hook_HttpClient_send(void *handle, cocos2d::network::HttpRequest *httpRequest) {
-    LOGD("----------testtest hook httpclient_send success-------------");
-    LOGD("testtest url = %s", httpRequest->getUrl());
-    LOGD("----------------------testtest------------------------------");
-    return _HttpClient_send(handle, httpRequest);
-}
-
-int hook_CNetHttp_DoRequest(void *handle, std::string const &s1,
-                            cocos2d::network::HttpRequest::Type type,
-                            std::string const &s2, std::string const &s3) {
-    LOGD("testtest hook success doRequest str1 = %s", s1.c_str());
-    LOGD("testtest hook success doRequest str2 = %s", s2.c_str());
-    LOGD("testtest hook success doRequest str3 = %s", s3.c_str());
-    return _CNetHttp_DoRequest(handle, s1, type, s2, s3);
+    return result;
 }
 
 void hook_thread() {
@@ -556,10 +510,9 @@ void hook_thread() {
     point.y = 200;
     fipo[-1] = point;
 
-    //Utils::XOrFunc(std::string &) 00876E14
-    registerInlineHook((base + 0x00876E14 + 1), (uint32_t) hook_Utils_XOrFunc,
-                       (uint32_t **) &_Utils_XOrFunc);
-    inlineHook(base + 0x00876E14 + 1);
+    registerInlineHook((base + 0x008BB634 + 1), (uint32_t) hook_Json_FastWriter_write,
+                       (uint32_t **) &_Json_FastWriter_write);
+    inlineHook(base + 0x008BB634 + 1);
 
 //    registerInlineHook((base + 0x006B6D70 + 1), (uint32_t) hook_CSocket_Send,
 //                       (uint32_t **) &_CSocket_Send);
@@ -569,25 +522,6 @@ void hook_thread() {
                        (uint32_t **) &_CSocket_Recv);
     inlineHook(base + 0x006B6DAC + 1);
 
-//   registerInlineHook((base + 0x006B5BE0 + 1), (uint32_t) hook_CNetHttp_OnHttpResponse,
-//                       (uint32_t **) &_CNetHttp_OnHttpResponse);
-//    inlineHook(base + 0x006B5BE0 + 1);
-
-//    registerInlineHook((base + 0x0006B5A64 + 1), (uint32_t) hook_CNetHttp_DoRequest,
-//                       (uint32_t **) &_CNetHttp_DoRequest);
-//    inlineHook(base + 0x006B5A64 + 1);
-//
-//    registerInlineHook((base + 0x008A5AF0 + 1), (uint32_t) hook_CCHttpAgent_HttpGet,
-//                       (uint32_t **) &_CCHttpAgent_HttpGet);
-//    inlineHook(base + 0x008A5AF0 + 1);
-//
-//    registerInlineHook((base + 0x008A5B74 + 1), (uint32_t) hook_CCHttpAgent_HttpPost,
-//                       (uint32_t **) &_CCHttpAgent_HttpPost);
-//    inlineHook(base + 0x008A5B74 + 1);
-
-//    registerInlineHook((base + 0x00DDCED4 + 1), (uint32_t) hook_SUB_00DDCED4,
-//                       (uint32_t **) &_SUB_00DDCED4);
-//    inlineHook(base + 0x00DDCED4 + 1);
     LOGD("testtest after hook");
     create_server();
 }
