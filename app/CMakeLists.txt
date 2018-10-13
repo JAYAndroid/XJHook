@@ -9,11 +9,15 @@
          src/main/cpp/inlineHook.cpp
          src/main/cpp/relocate.cpp
          #         香蕉游戏
-         src/main/cpp/banana/hello.cpp
-         src/main/cpp/banana/lib_json/json_value.cpp
-         src/main/cpp/banana/lib_json/json_writer.cpp
+#         src/main/cpp/banana/hello.cpp
+#         src/main/cpp/banana/lib_json/json_value.cpp
+#         src/main/cpp/banana/lib_json/json_writer.cpp
+         #         盛世
+         #         src/main/cpp/shegnshi/hello.cpp
+         #         大四喜
+         src/main/cpp/dasixi/hello.cpp
          #         当前游戏
-         #         src/main/cpp/hello.cpp
+         #                  src/main/cpp/hello.cpp
          # X86指令hook公共依赖
          #         src/main/cpp/MSHook/MSHook.cpp
          #         src/main/cpp/MSHook/util.cpp
@@ -30,10 +34,10 @@
          src/main/cpp
          src/main/cpp/include
          #        x86 hook公共头文件
-         src/main/cpp/MSHook
+#         src/main/cpp/MSHook
          #         香蕉游戏依赖头文件
-         src/main/cpp/banana/lib_json
-         src/main/cpp/banana/json
+#         src/main/cpp/banana/lib_json
+#         src/main/cpp/banana/json
  )
 
  find_library(log-lib log)

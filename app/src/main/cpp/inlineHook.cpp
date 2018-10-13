@@ -189,7 +189,6 @@ static void unFreeze(pid_t pid) {
 
 static bool isExecutableAddr(uint32_t addr) {
     FILE *fp;
-    LOGD("testtest isExecutableAddr start");
     char line[1024];
     uint32_t start;
     uint32_t end;
@@ -211,7 +210,6 @@ static bool isExecutableAddr(uint32_t addr) {
     }
 
     fclose(fp);
-    LOGD("testtest isExecutableAddr end");
     return false;
 }
 
@@ -248,22 +246,17 @@ static void deleteInlineHookItem(int pos) {
 enum ele7en_status
 registerInlineHook(uint32_t target_addr, uint32_t new_addr, uint32_t **proto_addr) {
     struct inlineHookItem *item;
-    LOGD("testtest registerInlineHook start");
     if (!isExecutableAddr(target_addr) || !isExecutableAddr(new_addr)) {
-        LOGD("testtest registerInlineHook return ELE7EN_ERROR_NOT_EXECUTABLE");
         return ELE7EN_ERROR_NOT_EXECUTABLE;
     }
 
     item = findInlineHookItem(target_addr);
     if (item != NULL) {
         if (item->status == REGISTERED) {
-            LOGD("testtest registerInlineHook return ELE7EN_ERROR_ALREADY_REGISTERED");
             return ELE7EN_ERROR_ALREADY_REGISTERED;
         } else if (item->status == HOOKED) {
-            LOGD("testtest registerInlineHook return ELE7EN_ERROR_ALREADY_HOOKED");
             return ELE7EN_ERROR_ALREADY_HOOKED;
         } else {
-            LOGD("testtest registerInlineHook return ELE7EN_ERROR_UNKNOWN");
             return ELE7EN_ERROR_UNKNOWN;
         }
     }
