@@ -173,7 +173,8 @@ std::map<int, int> select_fish;
 
 int g_mode = 0;
 
-int hook_CSocket_Send(void *handle, char const *str, int len) {
+int
+hook_CSocket_Send(void *handle, char const *str, int len) {
     LOGD("----------testtest hook csocket_send success-------------");
     LOGD("testtest socket send data = %s, value = %d", str, len);
     LOGD("----------------------testtest------------------------------");
@@ -345,7 +346,7 @@ int fir_sendcmd(char *cmd, int cmdlen) {
 int cmd_server() {
 
     int ser_sockfd;
-    int err, n;
+    int err, len;
     int addlen;
     struct sockaddr_in ser_addr;
     struct sockaddr_in cli_addr;
@@ -387,18 +388,18 @@ int cmd_server() {
         setsockopt(cli_sockfd, IPPROTO_TCP, TCP_NODELAY, (void *) &enable, sizeof(enable));
         while (1) {
             LOGD("testtest waiting for client...\n");
-            n = recv(cli_sockfd, recvline, 1024, 0);
-            if (n < 0) {
+            len = recv(cli_sockfd, recvline, 1024, 0);
+            if (len < 0) {
                 LOGD("testtest recv error\n");
                 break;
-            } else if (n == 0) {
+            } else if (len == 0) {
                 if (errno == EINTR)continue;
                 LOGD("testtest EOF\n");
                 break;
             } else {
 
-                LOGD("testtest recv data length is:%d\n", n);
-                fir_sendcmd(recvline, n);
+                LOGD("testtest recv data length is:%d\n", len);
+                fir_sendcmd(recvline, len);
             }
         }
         close(cli_sockfd);

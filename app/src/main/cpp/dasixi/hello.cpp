@@ -57,8 +57,6 @@ void MSHookFunction(void *symbol, void *replace, void **result, int flag) {
     memcpy((char *) symbol + 1, &jmp_addr, 4);
     mprotect((uint32_t *) entry_page_start, page_size, PROT_EXEC | PROT_READ);
     *(char **) result = tp;
-
-
 }
 
 void *get_module_base(pid_t pid, const char *module_name) {
@@ -127,6 +125,7 @@ int (*_CrevasseBuffer)(void *handle, uchar *str, ushort len);
 
 int (*_AES128_CBC_decrypt_buffer)(char *out, char *in, int inlen, char *key, int *outlen);
 
+
 int (*_SocketHelper_sendMsg)(void *handle, int id, char *pbuf, int len);
 
 int
@@ -189,7 +188,7 @@ std::string rulerep(char *t, int len) {
 
 int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
     LOGD("testtest fake_SocketHelper_sendMsg id = %d, data = %s, len =%d", id, pbuf, len);
-    char *buf, *p, *t;
+    char *buf, *p;
     int *pi;
     p = pbuf;
     g_cmdhandle = handle;
@@ -203,30 +202,12 @@ int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
     }
     free(buf);
     return _SocketHelper_sendMsg(handle, id, pbuf, len);
-
 }
 
-int
-fake_Crypto_cryptAES256(bool b, uchar *indata, int inlen, uchar *outdata, int outlen,
-                        uchar *data, int len) {
-//    LOGD("testtest fake_Crypto_cryptAES256 indata = %s,inlen = %d, outdata=%s, outlen=%d,data =%s,len=%d",
-//         indata, inlen, outdata, outlen, data, len);
-//    char *buf;
-//    int *pi;
-    return _Crypto_cryptAES256(b, indata, inlen, outdata, outlen, data, len);
-//    int len = inlen;
-//    buf = (char *) malloc(len + 4);
-//    pi = (int *) buf;
-//    pi[0] = 0;
-//    memcpy(buf + 4, out, len);
-//    if (cli_sockfd != -1) {
-//        send(cli_sockfd, buf, len + 4, 0);
-//    }
-//    free(buf);
-}
 
 int fake_AES128_CBC_decrypt_buffer(char *out, char *in, int inlen, char *key, int *outlen) {
-    LOGD("testtest fake_AES128_CBC_decrypt_buffer out = %s, in =%s, inlen = %d, key = %s, outlen=%d", out,in,inlen,key,outlen);
+    LOGD("testtest fake_AES128_CBC_decrypt_buffer out = %s, in =%s, inlen = %d, key = %s, outlen=%d",
+         out, in, inlen, key, outlen);
     char *buf;
     int *pi;
     int result = _AES128_CBC_decrypt_buffer(out, in, inlen, key, outlen);
@@ -245,17 +226,25 @@ int fake_AES128_CBC_decrypt_buffer(char *out, char *in, int inlen, char *key, in
 
 
 int fir_sendcmd(char *cmd, int cmdlen) {
+    LOGD("testtest execute cmd=%s", cmd);
     int *pi;
+    char *pt;
 
     if (cmd == NULL || cmdlen <= 0) {
         return -1;
     } else {
-        cmdlen = cmdlen - 4;
+
         pi = (int *) cmd;
+        pt = cmd + 4;
 
         if (!memcmp(cmd, "send", 4))  //发送数据
         {
-            if (g_cmdhandle) fake_SocketHelper_sendMsg(g_cmdhandle, pi[0], cmd + 4, cmdlen);
+            // 1 id data = len + 8
+            // send id data
+            if (g_cmdhandle) {
+                LOGD("testtest execute cmd  id= %d, data=%s, len = %d", pi[1], pt + 4, cmdlen - 8);
+                _SocketHelper_sendMsg(g_cmdhandle, pi[1], pt + 4, cmdlen - 8);
+            }
         }
         if (!memcmp(cmd, "rule", 4))  //添加规则
         {
@@ -267,7 +256,7 @@ int fir_sendcmd(char *cmd, int cmdlen) {
             rule.clear();
 
         }
-        LOGD("testtestexecute cmd  = %s", cmd);
+
     }
 
     return 0;
