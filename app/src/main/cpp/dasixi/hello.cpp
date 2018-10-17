@@ -25,6 +25,8 @@
 uint32_t base;
 uint32_t sign = 0x00573339;
 
+pthread_mutex_t mutex;
+
 void MSHookFunction(void *symbol, void *replace, void **result, int flag) {
     uint32_t page_size = getpagesize();
     char *tp = (char *) mmap(0, 10, PROT_ALL, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -188,6 +190,7 @@ std::string rulerep(char *t, int len) {
 
 int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
     LOGD("testtest fake_SocketHelper_sendMsg id = %d, data = %s, len =%d", id, pbuf, len);
+    pthread_mutex_lock(&mutex);
     char *buf, *p;
     int *pi;
     p = pbuf;
@@ -201,7 +204,9 @@ int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
         send(cli_sockfd, buf, len + 8, 0);
     }
     free(buf);
-    return _SocketHelper_sendMsg(handle, id, pbuf, len);
+    int result =  _SocketHelper_sendMsg(handle, id, pbuf, len);
+    pthread_mutex_unlock(&mutex);
+    return result;
 }
 
 
@@ -243,7 +248,7 @@ int fir_sendcmd(char *cmd, int cmdlen) {
             // send id data
             if (g_cmdhandle) {
                 LOGD("testtest execute cmd  id= %d, data=%s, len = %d", pi[1], pt + 4, cmdlen - 8);
-                _SocketHelper_sendMsg(g_cmdhandle, pi[1], pt + 4, cmdlen - 8);
+                fake_SocketHelper_sendMsg(g_cmdhandle, pi[1], pt + 4, cmdlen - 8);
             }
         }
         if (!memcmp(cmd, "rule", 4))  //添加规则
@@ -348,7 +353,7 @@ int create_server() {
 
 }
 
-pthread_mutex_t mutex;
+
 
 void hook_thread() {
     LOGD("testtest Hook success, pid = %d\n", getpid());
@@ -360,10 +365,10 @@ void hook_thread() {
         }
         usleep(1000);
     }
-    srand(time(NULL));
+    pthread_mutex_init(&mutex, NULL);
 
-    *(int *) &getBuff = base + 0x0067FC94;
-
+//    *(int *) &getBuff = base + 0x0067FC94;
+//    SocketHelper::sendMsg(int,lstring const&,int) 0067D648
     registerInlineHook((base + 0x0067D648), (uint32_t) fake_SocketHelper_sendMsg,
                        (uint32_t **) &_SocketHelper_sendMsg);
     inlineHook(base + 0x0067D648);

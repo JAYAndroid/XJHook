@@ -123,8 +123,8 @@ int (*_compress)(void *dest, uint32_t *destLen, void *source, uint32_t sourceLen
 
 int (*_WebSocket_SendData)(uchar const *data, uint len);
 
-int (*old_setXXTEAKeyAndSign)(void *handle, char const *key, int key_len, char const *sign,
-                              int sign_len);
+int (*_setXXTEAKeyAndSign)(void *handle, char const *key, int key_len, char const *sign,
+                           int sign_len);
 
 int (*_CrevasseBuffer)(void *handle, uchar *str, ushort len);
 
@@ -206,14 +206,16 @@ int fake_WebSocket_Send(uchar const *str, uint len) {
 
 }
 
+//cocos2d::LuaStack::setXXTEAKeyAndSign(char const*,int,char const*,int) 00CD7F20
 int
-my_setXXTEAKeyAndSign(void *handle, char const *key, int key_len, char const *sign, int sign_len) {
+fake_setXXTEAKeyAndSign(void *handle, char const *key, int key_len, char const *sign,
+                        int sign_len) {
     char key_str[100] = {0};
     memcpy(key_str, key, key_len);
     char sign_str[100] = {0};
     memcpy(sign_str, sign, sign_len);
-    LOGD("testtest my_setXXTEAKeyAndSign key = %s, sign = %s", key_str, sign_str);
-    return old_setXXTEAKeyAndSign(handle, key, key_len, sign, sign_len);
+    LOGD("testtest fake_setXXTEAKeyAndSign key = %s, sign = %s", key_str, sign_str);
+    return _setXXTEAKeyAndSign(handle, key, key_len, sign, sign_len);
 }
 
 int fake_CrevasseBuffer(void *handle, uchar *str, ushort len) {
@@ -365,10 +367,13 @@ void hook_thread() {
     }
     srand(time(NULL));
 
-    inlineHookDirect((uint32_t) (base + 0x01CA2490), (void *) fake_WebSocket_Send,
-                     (void **) &_WebSocket_SendData);
-//    registerInlineHook((base + 0x00CD7F20), (uint32_t) my_setXXTEAKeyAndSign,
-//                       (uint32_t **) &old_setXXTEAKeyAndSign);
+    //cocos2d::network::WebSocket::send(uchar const*,uint) 01CA2490
+//    inlineHookDirect((base + 0x01CA2490 + 1), (void *) fake_WebSocket_Send,
+//                     (void **) &_WebSocket_SendData);
+
+    //cocos2d::LuaStack::setXXTEAKeyAndSign(char const*,int,char const*,int) 00CD7F20
+    inlineHookDirect((base + 0x00CD7F20 + 1), (void *) fake_setXXTEAKeyAndSign,
+                     (void **) &_setXXTEAKeyAndSign);
 
 //    inlineHookDirect((uint32_t)(base+0x00C6EE80+1),(void*)fake_CrevasseBuffer,(void**)&_CrevasseBuffer);
 

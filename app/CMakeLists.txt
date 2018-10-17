@@ -13,19 +13,19 @@
 #         src/main/cpp/banana/lib_json/json_value.cpp
 #         src/main/cpp/banana/lib_json/json_writer.cpp
          #         盛世
-         #         src/main/cpp/shegnshi/hello.cpp
+#                  src/main/cpp/shengshi/hello.cpp
          #         大四喜
          src/main/cpp/dasixi/hello.cpp
          #         当前游戏
          #                  src/main/cpp/hello.cpp
          # X86指令hook公共依赖
-         #         src/main/cpp/MSHook/MSHook.cpp
-         #         src/main/cpp/MSHook/util.cpp
-         #         src/main/cpp/MSHook/Hooker.cpp
-         #         src/main/cpp/MSHook/Debug.cpp
-         #         src/main/cpp/MSHook/PosixMemory.cpp
-         #         src/main/cpp/MSHook/x86.cpp
-         #         src/main/cpp/MSHook/x86_64.cpp
+#                  src/main/cpp/MSHook/MSHook.cpp
+#                  src/main/cpp/MSHook/util.cpp
+#                  src/main/cpp/MSHook/Hooker.cpp
+#                  src/main/cpp/MSHook/Debug.cpp
+#                  src/main/cpp/MSHook/PosixMemory.cpp
+#                  src/main/cpp/MSHook/x86.cpp
+#                  src/main/cpp/MSHook/x86_64.cpp
          )
 
  #第三方库使用到的头文件
