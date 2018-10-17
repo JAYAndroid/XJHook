@@ -213,6 +213,10 @@ int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
 int fake_AES128_CBC_decrypt_buffer(char *out, char *in, int inlen, char *key, int *outlen) {
     LOGD("testtest fake_AES128_CBC_decrypt_buffer out = %s, in =%s, inlen = %d, key = %s, outlen=%d",
          out, in, inlen, key, outlen);
+    if(inlen > 1000){
+        return _AES128_CBC_decrypt_buffer(out, in, inlen, key, outlen);
+    }
+
     char *buf;
     int *pi;
     int result = _AES128_CBC_decrypt_buffer(out, in, inlen, key, outlen);
