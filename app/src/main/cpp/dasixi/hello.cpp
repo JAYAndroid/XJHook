@@ -27,39 +27,6 @@ uint32_t sign = 0x00573339;
 
 pthread_mutex_t mutex;
 
-void MSHookFunction(void *symbol, void *replace, void **result, int flag) {
-    uint32_t page_size = getpagesize();
-    char *tp = (char *) mmap(0, 10, PROT_ALL, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    unsigned char opcode[5] = {0x8b, 0x1c, 0x24, 0x90, 0x90};
-    if (tp == NULL) {
-        LOGD("testtestMSHookFunction:mmap() fail");
-        return;
-    }
-    uint32_t entry_page_start = ((uint32_t) symbol) & (~(page_size - 1));
-    uint32_t jmpback_addr, jmp_addr;
-    jmpback_addr = (uint32_t) (((char *) (symbol)) - ((char *) tp) - 5);
-    jmp_addr = (uint32_t) (((char *) replace) - ((char *) (symbol)) - 5);
-    unsigned char jmp_op = 0xe9;
-    unsigned char mov_ebx = 0xbb;
-    if (flag) {
-        memcpy(tp, symbol, 6);
-        //memcpy(tp+1,&opcode,5);
-        memcpy(tp + 6, &jmp_op, 1);
-        memcpy(tp + 7, &jmpback_addr, 4);
-    } else {
-        sign += base;
-        memcpy(tp, symbol, 4);
-        memcpy(tp + 4, &mov_ebx, 1);
-        memcpy(tp + 5, &sign, 4);
-        memcpy(tp + 9, &jmp_op, 1);
-        memcpy(tp + 10, &jmpback_addr, 4);
-    }
-    mprotect((uint32_t *) entry_page_start, page_size, PROT_EXEC | PROT_READ | PROT_WRITE);
-    memcpy(symbol, &jmp_op, 1);
-    memcpy((char *) symbol + 1, &jmp_addr, 4);
-    mprotect((uint32_t *) entry_page_start, page_size, PROT_EXEC | PROT_READ);
-    *(char **) result = tp;
-}
 
 void *get_module_base(pid_t pid, const char *module_name) {
     FILE *fp;
@@ -130,6 +97,13 @@ int (*_AES128_CBC_decrypt_buffer)(char *out, char *in, int inlen, char *key, int
 
 int (*_SocketHelper_sendMsg)(void *handle, int id, char *pbuf, int len);
 
+int (*_TCPSocket_SendMsg)(void *handle, char const *data, int len);
+
+int (*_encryptAES256Lua)(char const *data, int dataLen, char const *key, int keyLen);
+
+int
+(*_cryptAES256)(bool bo, uchar *data, int dataLen, uchar *key, int keyLen, uchar *dd, int ddlen);
+
 int
 (*_Crypto_cryptAES256)(bool b, uchar *indata, int inlen, uchar *outdata, int outlen,
                        uchar *data, int len);
@@ -188,9 +162,54 @@ std::string rulerep(char *t, int len) {
 
 }
 
+int crypto_encryptAES256Lua(char const *data, int dataLen, char const *key, int keyLen) {
+    LOGD("testtest crypto_encryptAES256Lua data=%s, datalen=%d, key=%s, keylen=%d", data,dataLen,key,keyLen);
+    int result = _encryptAES256Lua(data, dataLen, key, keyLen);
+    return result;
+}
+
+//bool,uchar *,int,uchar *,int,uchar *,int
+int Crypto_cryptAES256(bool bo, uchar *data, int dataLen, uchar *key, int keyLen, uchar *dd,
+                       int ddlen) {
+    int result = _cryptAES256(bo, data, dataLen, key, keyLen, dd, ddlen);
+    LOGD("testtest Crypto_cryptAES256 bo=%d, data=%s, datalen=%d, key=%s, keylen=%d, dd=%s, ddlen=%d", bo,data, dataLen, key,
+         keyLen,dd,ddlen);
+    return result;
+}
+
+int decdata(uchar *str, int len) {
+    if (len <= 18)return 0;
+    str += 18;
+    len -= 18;
+    int i = 0;
+    while (i < len) {
+        str[i] ^= 0xa1;
+        i++;
+    }
+    return 1;
+}
+
+int fake_TCPSocket_SendMsg(void *handle, char const *data, int len) {
+    char *buf;
+    int *pi;
+
+    g_cmdhandle = handle;
+    buf = (char *) malloc(len + 4);
+    pi = (int *) buf;
+    pi[0] = 1;
+    if (len)memcpy(buf + 4, data, len);
+//    _encryptAES256Lua(buf,len,mKey,mkeyLen);
+    if (cli_sockfd != -1) {
+        send(cli_sockfd, buf, len + 4, 0);
+    }
+
+    LOGD("testtest fake_TCPSocket_SendMsg data =%s, len=%d", buf, len);
+    free(buf);
+    return _TCPSocket_SendMsg(handle, data, len);
+}
+
 int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
     LOGD("testtest fake_SocketHelper_sendMsg id = %d, data = %s, len =%d", id, pbuf, len);
-    pthread_mutex_lock(&mutex);
     char *buf, *p;
     int *pi;
     p = pbuf;
@@ -200,20 +219,20 @@ int fake_SocketHelper_sendMsg(void *handle, int id, char *pbuf, int len) {
     pi[0] = 1;
     pi[1] = id;
     if (len)memcpy(buf + 8, p, len);
+    std::string ts = rulerep(buf, len + 8);
     if (cli_sockfd != -1) {
-        send(cli_sockfd, buf, len + 8, 0);
+        send(cli_sockfd, ts.c_str(), ts.length(), 0);
     }
     free(buf);
-    int result =  _SocketHelper_sendMsg(handle, id, pbuf, len);
-    pthread_mutex_unlock(&mutex);
-    return result;
+
+    char *pnew = (char *) ts.c_str();
+    pnew += 8;
+    return _SocketHelper_sendMsg(handle, id, pnew, len - 8);
 }
 
 
 int fake_AES128_CBC_decrypt_buffer(char *out, char *in, int inlen, char *key, int *outlen) {
-    LOGD("testtest fake_AES128_CBC_decrypt_buffer out = %s, in =%s, inlen = %d, key = %s, outlen=%d",
-         out, in, inlen, key, outlen);
-    if(inlen > 1000){
+    if (inlen > 1000) {
         return _AES128_CBC_decrypt_buffer(out, in, inlen, key, outlen);
     }
 
@@ -235,24 +254,20 @@ int fake_AES128_CBC_decrypt_buffer(char *out, char *in, int inlen, char *key, in
 
 
 int fir_sendcmd(char *cmd, int cmdlen) {
-    LOGD("testtest execute cmd=%s", cmd);
-    int *pi;
     char *pt;
 
     if (cmd == NULL || cmdlen <= 0) {
         return -1;
     } else {
-
-        pi = (int *) cmd;
+        cmdlen = cmdlen - 4;
         pt = cmd + 4;
 
         if (!memcmp(cmd, "send", 4))  //发送数据
         {
-            // 1 id data = len + 8
-            // send id data
             if (g_cmdhandle) {
-                LOGD("testtest execute cmd  id= %d, data=%s, len = %d", pi[1], pt + 4, cmdlen - 8);
-                fake_SocketHelper_sendMsg(g_cmdhandle, pi[1], pt + 4, cmdlen - 8);
+                decdata((uchar *) pt, cmdlen);
+                LOGD("testtest execute cmd data=%s, len = %d", pt, cmdlen);
+                if (g_cmdhandle)_TCPSocket_SendMsg(g_cmdhandle, pt, cmdlen);
             }
         }
         if (!memcmp(cmd, "rule", 4))  //添加规则
@@ -358,7 +373,6 @@ int create_server() {
 }
 
 
-
 void hook_thread() {
     LOGD("testtest Hook success, pid = %d\n", getpid());
     while (1) {
@@ -371,15 +385,30 @@ void hook_thread() {
     }
     pthread_mutex_init(&mutex, NULL);
 
-//    *(int *) &getBuff = base + 0x0067FC94;
-//    SocketHelper::sendMsg(int,lstring const&,int) 0067D648
-    registerInlineHook((base + 0x0067D648), (uint32_t) fake_SocketHelper_sendMsg,
-                       (uint32_t **) &_SocketHelper_sendMsg);
-    inlineHook(base + 0x0067D648);
+    //cocos2d::extra::Crypto::encryptAES256Lua(char const*,int,char const*,int)	00A8C8F8
+    registerInlineHook((base + 0x00A8C8F8), (uint32_t) crypto_encryptAES256Lua,
+                       (uint32_t **) &_encryptAES256Lua);
+    inlineHook(base + 0x00A8C8F8);
 
-    registerInlineHook((base + 0x00A91BF8), (uint32_t) fake_AES128_CBC_decrypt_buffer,
-                       (uint32_t **) &_AES128_CBC_decrypt_buffer);
-    inlineHook(base + 0x00A91BF8);
+    //cocos2d::extra::Crypto::cryptAES256(bool,uchar *,int,uchar *,int,uchar *,int)	00A8FB98
+    registerInlineHook((base + 0x00A8FB98), (uint32_t) Crypto_cryptAES256,
+                       (uint32_t **) &_cryptAES256);
+    inlineHook(base + 0x00A8FB98);
+
+
+
+
+//    registerInlineHook((base + 0x0067FB30), (uint32_t) fake_TCPSocket_SendMsg,
+//                       (uint32_t **) &_TCPSocket_SendMsg);
+//    inlineHook(base + 0x0067FB30);
+
+//    registerInlineHook((base + 0x0067D648), (uint32_t) fake_SocketHelper_sendMsg,
+//                       (uint32_t **) &_SocketHelper_sendMsg);
+//    inlineHook(base + 0x0067D648);
+
+//    registerInlineHook((base + 0x00A91BF8), (uint32_t) fake_AES128_CBC_decrypt_buffer,
+//                       (uint32_t **) &_AES128_CBC_decrypt_buffer);
+//    inlineHook(base + 0x00A91BF8);
 
 //    registerInlineHook((base + 0x00A8FB98), (uint32_t) fake_Crypto_cryptAES256
 //                       (uint32_t **) &_Crypto_cryptAES256);

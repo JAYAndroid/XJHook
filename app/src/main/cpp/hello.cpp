@@ -207,12 +207,12 @@ int fake_WebSocket_Send(uchar const *str, uint len) {
 }
 
 int
-my_setXXTEAKeyAndSign(void *handle, char const *key, int key_len, char const *sign, int sign_len) {
+crypto_encryptXXTEA(void *handle, char const *key, int key_len, char const *sign, int sign_len) {
     char key_str[100] = {0};
     memcpy(key_str, key, key_len);
     char sign_str[100] = {0};
     memcpy(sign_str, sign, sign_len);
-    LOGD("testtest my_setXXTEAKeyAndSign key = %s, sign = %s", key_str, sign_str);
+    LOGD("testtest crypto_encryptAES256Lua key = %s, sign = %s", key_str, sign_str);
     return old_setXXTEAKeyAndSign(handle, key, key_len, sign, sign_len);
 }
 
@@ -367,7 +367,7 @@ void hook_thread() {
 
     inlineHookDirect((uint32_t) (base + 0x01CA2490), (void *) fake_WebSocket_Send,
                      (void **) &_WebSocket_SendData);
-//    registerInlineHook((base + 0x00CD7F20), (uint32_t) my_setXXTEAKeyAndSign,
+//    registerInlineHook((base + 0x00CD7F20), (uint32_t) crypto_encryptAES256Lua,
 //                       (uint32_t **) &old_setXXTEAKeyAndSign);
 
 //    inlineHookDirect((uint32_t)(base+0x00C6EE80+1),(void*)fake_CrevasseBuffer,(void**)&_CrevasseBuffer);
